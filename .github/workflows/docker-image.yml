@@ -20,9 +20,10 @@ jobs:
       run: |
         docker login -u $DOCKER_USER -p $DOCKER_PASSWORD 
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag vincentberry/ddns-online-scaleway:$(date +%s)
-      
+      run: docker build . --file Dockerfile --tag vincentberry/ddns-online-scaleway:latest
+         
     - name: Docker Push
       run: docker push --all-tags vincentberry/ddns-online-scaleway
+
 
       
