@@ -57,6 +57,24 @@ services:
     restart: unless-stopped
 ````
 Les  logs sont stocké dans le docker `/usr/src/app/log`
+Des DNS si besoin pour le ping peut être spécifié 
+
+````DockercomposeDns.yml
+version: '3'
+services:
+  ddns:
+    image: vincentberry/ddns-online-scaleway
+   volumes:
+        - /MonDossier/log:/usr/src/app/log
+    environment:
+      - ONLINE_TOKEN=MonTokenOniline.Net
+      - DOMAINS=exemple.fr,exemple-2.fr
+      - SUBDOMAINS=@,*
+      - TYPES=A
+    dns:
+      -8.8.8.8
+    restart: unless-stopped
+````
 
 ## Comment Utiliser le Script avec Docker Compose (sans dockerhub)
 1. Téléchargement du Script: Téléchargez le script ddns_update.php depuis le référentiel GitHub.
@@ -77,7 +95,8 @@ services:
       - DOMAINS=exemple.fr,exemple-2.fr
       - SUBDOMAINS=@,*
       - TYPES=A
-    dns: 8.8.8.8
+    dns:
+      -8.8.8.8
     command: ["php", "/usr/src/app/ddns_update.php"]
     restart: unless-stopped
 ````
