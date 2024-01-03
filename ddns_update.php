@@ -5,7 +5,7 @@ $Online_Token = getenv('ONLINE_TOKEN');
 $domains = explode(',', getenv('DOMAINS')) ?: [''];
 $subdomains = explode(',', getenv('SUBDOMAINS')) ?: ['@', '*'];
 $types = getenv('TYPES') ?: 'A';
-$logFilePath = getenv('LOG_FILE_PATH') ?: "/log/log.log";
+$logFilePath = getenv('LOG_FILE_PATH') ?: "/usr/src/app/log/log.log";
 
 function writeToLog($message)
 {
@@ -34,8 +34,8 @@ function OnlineApi($URL, $POSTFIELDS = "", $method = 'GET')
     $error = curl_error($ch);
 
     curl_close($ch);
-    if ($httpCode == 200 && !empty($result)) {
-        return $result;
+    if ($httpCode == 200 || $httpCode == 201 || $httpCode == 202 || $httpCode == 203 || $httpCode == 204) {
+        return "ok";
     }elseif ($httpCode == 401 && isset($result['code'])){
         ApiErrorOnline($result['code']);
         return null;
