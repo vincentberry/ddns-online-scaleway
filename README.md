@@ -35,7 +35,7 @@ Pour obtenir les informations d'identification API nécessaires, veuillez suivre
 
 4. Copiez votre "Clé d'accès" et utilisez-la pour configurer la variable correspondante dans le script `ddns_update.php`.
 
-Assurez-vous de consulter la documentation complète pour obtenir des détails sur l'utilisation de l'API Online.net : [https://console.online.net/fr/api/docs](https://console.online.net/fr/api/docs).
+Assurez-vous de consulter la documentation complète pour obtenir des détails sur l'utilisation de l'API Online.net : [https://console.online.net/fr/api/docs](https://console.online.net/fr/api).
 
 ## Utilisation
 
