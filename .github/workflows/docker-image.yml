@@ -23,6 +23,6 @@ jobs:
       run: docker build . --file Dockerfile --tag vincentberry/ddns-online-scaleway:$(date +%s)
       
     - name: Docker Push
-      run: docker push vincentberry/ddns-online-scaleway
+      run: docker push vincentberry/ddns-online-scaleway:$(date +%s)
 
       
