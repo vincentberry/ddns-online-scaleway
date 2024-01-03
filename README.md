@@ -35,22 +35,30 @@ Pour obtenir les informations d'identification API nécessaires, veuillez suivre
 
 4. Copiez votre "Clé d'accès" et utilisez-la pour configurer la variable correspondante dans le script `ddns_update.php`.
 
-Assurez-vous de consulter la documentation complète pour obtenir des détails sur l'utilisation de l'API Online.net : [https://console.online.net/fr/api/docs](https://console.online.net/fr/api).
-
-## Utilisation
-
-Une fois le script lancé, il s'exécutera automatiquement toutes les 5 minutes.
-
-```bash
-php ddns_update.php
-```
+Assurez-vous de consulter la documentation complète pour obtenir des détails sur l'utilisation de l'API Online.net : [Doc API Online.](https://console.online.net/fr/api).
 
 ## Remarques
 Le script est fourni tel quel et doit être adapté aux besoins spécifiques de l'utilisateur.
 Veillez à ne pas stocker les informations d'identification d'API de manière non sécurisée.
 Assurez-vous que le serveur exécutant le script a accès à Internet pour effectuer des requêtes vers les API des fournisseurs.
 
-## Comment Utiliser le Script avec Docker Compose
+## Comment Utiliser le Script avec Docker Compose (recommandé, [DockerHub](https://hub.docker.com/repository/docker/vincentberry))
+
+````Dockercompose.yml
+version: '3'
+services:
+  ddns:
+    image: vincentberry/ddns-online-scaleway
+    environment:
+      - ONLINE_TOKEN=MonTokenOniline.Net
+      - DOMAINS=exemple.fr,exemple-2.fr
+      - SUBDOMAINS=@,*
+      - TYPES=A
+    restart: unless-stopped
+````
+Les  logs sont stocké dans le docker `/usr/src/app/log`
+
+## Comment Utiliser le Script avec Docker Compose (sans dockerhub)
 1. Téléchargement du Script: Téléchargez le script ddns_update.php depuis le référentiel GitHub.
 
 2. Configuration: Ouvrez le script dans un éditeur de texte et configurez les variables au début du script selon vos besoins (informations d'identification, sous-domaine, etc.).
@@ -74,5 +82,16 @@ services:
     restart: unless-stopped
 ````
 
+```bash
+php ddns_update.php
+```
+
+| Variable        | Description                                                                                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `ONLINE_TOKEN`  | Remplacez "MonTokenOniline.Net" par votre clé API Online.net. Obtenez cette clé depuis [la console Online.net](https://console.online.net/fr/api/access). |
+| `DOMAINS`       | Indiquez la liste de vos domaines séparés par des virgules. Par exemple, `exemple.fr,exemple-2.fr`.             |
+| `SUBDOMAINS`    | Spécifiez les sous-domaines séparés par des virgules que vous souhaitez mettre à jour. Utilisez `@` pour le domaine principal et `*` pour tous les sous-domaines (par exemple, `@,*`). |
+| `TYPES`         | Indiquez le type d'enregistrement DNS à mettre à jour. Par exemple, `A` pour un enregistrement de type Adresse IPv4. |
+| `LOG_PATH`      | (Optionnel) Le chemin du répertoire pour les logs. Si vous souhaitez les stocker dans un volume, spécifiez le chemin ici (par exemple, `/log`). |
 
 Ce README a été créé avec le soutien d'une intelligence artificielle pour fournir des informations claires et utiles.
