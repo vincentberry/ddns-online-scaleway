@@ -61,11 +61,16 @@ services:
   ddns:
     image: php:7.4-cli
     volumes:
-      - /docker/ddns/script:/script
-      - /docker/ddns/log:/log
+      - /docker/ddns/script:/usr/src/app
+      - /docker/ddns/log:/usr/src/app/log
     working_dir: /script
+    environment:
+      - ONLINE_TOKEN=MonTokenOniline.Net
+      - DOMAINS=exemple.fr,exemple-2.fr
+      - SUBDOMAINS=@,*
+      - TYPES=A
     dns: 8.8.8.8
-    command: ["php", "ddns_update.php"]
+    command: ["php", "/usr/src/app/ddns_update.php"]
     restart: unless-stopped
 ````
 
