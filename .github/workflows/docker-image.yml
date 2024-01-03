@@ -23,12 +23,16 @@ jobs:
         
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag vincentberry/ddns-online-scaleway:latest 
+      
+    - name: Docker Push laster
+      run: vincentberry/ddns-online-scaleway
 
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag vincentberry/ddns-online-scaleway:$(date +%s) 
-
+          
     - name: Docker Push laster
       run: vincentberry/ddns-online-scaleway
+
         
 
 
