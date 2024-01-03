@@ -1,5 +1,4 @@
 <?php
-
 // Récupération des clés d'API et d'autres paramètres depuis les variables d'environnement
 $Online_Token = getenv('ONLINE_TOKEN');
 $domains = explode(',', getenv('DOMAINS')) ?: [''];
