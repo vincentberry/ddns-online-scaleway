@@ -21,10 +21,11 @@ jobs:
         docker login -u $DOCKER_USER -p $DOCKER_PASSWORD 
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag vincentberry/ddns-online-scaleway:latest
+    - name: Docker Push laster
+      run: vincentberry/ddns-online-scaleway:latest
     - name: Docker Push
-      run: |
-        vincentberry/ddns-online-scaleway:latest
-        vincentberry/ddns-online-scaleway:$(date +%s)
+      run: vincentberry/ddns-online-scaleway:$(date +%s)
+        
 
 
       
