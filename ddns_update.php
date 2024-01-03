@@ -35,7 +35,7 @@ function OnlineApi($URL, $POSTFIELDS = "", $method = 'GET')
 
     curl_close($ch);
     if ($httpCode == 200 || $httpCode == 201 || $httpCode == 202 || $httpCode == 203 || $httpCode == 204) {
-        return "ok";
+         return  $result ?: "ok";
     }elseif ($httpCode == 401 && isset($result['code'])){
         ApiErrorOnline($result['code']);
         return null;
