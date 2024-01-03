@@ -6,6 +6,9 @@ RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     && docker-php-ext-install -j$(nproc) curl
 
+# Installation de l'utilitaire DNS (dnsutils) pour permettre la spécification de serveurs DNS
+RUN apt-get install -y dnsutils
+
 # Copie du script PHP dans le conteneur
 COPY ddns_update.php /usr/src/app/ddns_update.php
 
