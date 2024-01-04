@@ -42,7 +42,7 @@ Le script est fourni tel quel et doit être adapté aux besoins spécifiques de 
 Veillez à ne pas stocker les informations d'identification d'API de manière non sécurisée.
 Assurez-vous que le serveur exécutant le script a accès à Internet pour effectuer des requêtes vers les API des fournisseurs.
 
-## Comment Utiliser le Script avec Docker Compose (recommandé, [DockerHub](https://hub.docker.com/repository/docker/vincentberry))
+## Comment Utiliser image docker avec Docker Compose (recommandé, [DockerHub](https://hub.docker.com/r/vincentberry/ddns-online-scaleway))
 
 ````Dockercompose.yml
 version: '3'
