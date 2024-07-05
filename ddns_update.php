@@ -129,6 +129,35 @@ while (true) {
                 $address = $ipData['ip'];
 
                 writeToLog("🌐 Adresse IP actuelle : $address\n");
+                writeToLog("🔍 Vérification de l'IP pour $sub.$domain...\n");
+
+                if ($sub === "@") {
+                    $ipyet = gethostbyname($domain); // Récupération de l'IP en service sur l'enregistrement DNS.
+                } elseif ($sub === "*") {
+                    $ipyet = gethostbyname("testdnsall." . $domain); // Récupération de l'IP en service sur l'enregistrement DNS.
+                } else {
+                    $ipyet = gethostbyname("$sub.$domain"); // Récupération de l'IP en service sur l'enregistrement DNS.
+                }
+    
+                writeToLog("📊 IP actuelle : $address\n");
+                writeToLog("📌 IP enregistrée : $ipyet\n");
+    
+                if ($ipyet !== $address) { // Comparaison de la nouvelle IP et de celle en service.
+                    $ch = curl_init();
+    
+                    $URL =  "domain/" . $domain . "/version/active";
+                    $POSTFIELDS = "[{\"name\": \"$sub\",\"type\": \"$types\",\"changeType\": \"REPLACE\",\"records\": [{\"name\": \"$sub\",\"type\": \"$types\",\"priority\": 0,\"ttl\": 3600,\"data\": \"$address\"}]}]";
+                    $result = OnlineApi($URL, $POSTFIELDS, "PATCH");
+    
+                    if ($result === null) {
+                        writeToLog("⏰ Erreur ENVOI pour $sub.$domain" . "\n");
+                    } else {
+                        writeToLog("✅ IP mise à jour avec succès pour $sub.$domain\n\n");
+                    }
+    
+                } else {
+                    writeToLog("🔄 IP inchangée pour $sub.$domain !\n\n");
+                }
             } else {
                 $error = error_get_last();
                 writeToLog("❌ Impossible de récupérer l'adresse IP. Erreur : " . $error['message'] . "\n");
@@ -136,36 +165,6 @@ while (true) {
                 if (checkInternetConnection()) {
                     writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.\n");
                 }
-            }
-
-            writeToLog("🔍 Vérification de l'IP pour $sub.$domain...\n");
-
-            if ($sub === "@") {
-                $ipyet = gethostbyname($domain); // Récupération de l'IP en service sur l'enregistrement DNS.
-            } elseif ($sub === "*") {
-                $ipyet = gethostbyname("testdnsall." . $domain); // Récupération de l'IP en service sur l'enregistrement DNS.
-            } else {
-                $ipyet = gethostbyname("$sub.$domain"); // Récupération de l'IP en service sur l'enregistrement DNS.
-            }
-
-            writeToLog("📊 IP actuelle : $address\n");
-            writeToLog("📌 IP enregistrée : $ipyet\n");
-
-            if ($ipyet !== $address) { // Comparaison de la nouvelle IP et de celle en service.
-                $ch = curl_init();
-
-                $URL =  "domain/" . $domain . "/version/active";
-                $POSTFIELDS = "[{\"name\": \"$sub\",\"type\": \"$types\",\"changeType\": \"REPLACE\",\"records\": [{\"name\": \"$sub\",\"type\": \"$types\",\"priority\": 0,\"ttl\": 3600,\"data\": \"$address\"}]}]";
-                $result = OnlineApi($URL, $POSTFIELDS, "PATCH");
-
-                if ($result === null) {
-                    writeToLog("⏰ Erreur ENVOI pour $sub.$domain" . "\n");
-                } else {
-                    writeToLog("✅ IP mise à jour avec succès pour $sub.$domain\n\n");
-                }
-
-            } else {
-                writeToLog("🔄 IP inchangée pour $sub.$domain !\n\n");
             }
         }
     }
