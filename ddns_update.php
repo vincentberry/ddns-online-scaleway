@@ -103,7 +103,7 @@ if (empty($Online_Token) || empty($domains) || empty($subdomains) || empty($type
 }
 
 //vérification de la connection internet
-if (checkInternetConnection()) {
+if (!checkInternetConnection()) {
     writeToLog("❌ Fatal : Veuillez vérifier votre connexion Internet pour l'initialisation.\n");
     die("⛔ Done !");
 }
