@@ -10,8 +10,8 @@ $logFilePath = getenv('LOG_FILE_PATH') ?: "/usr/src/app/log/log.log";
 function writeToLog($message)
 {
     global $logFilePath;
-    file_put_contents($logFilePath, date('Y-m-d H:i:s') . " - $message", FILE_APPEND);
-    print_r($message);
+    file_put_contents($logFilePath, date('Y-m-d H:i:s') . " - $message\n", FILE_APPEND);
+    print_r($message . "\n");
 }
 
 // Fonction pour vérifier l'API Online.net
@@ -73,6 +73,19 @@ function ApiErrorOnline($httpCode) {
     }
 }
 
+// Fonction pour vérifier la connexion Internet
+function checkInternetConnection()
+{
+    $connected = @fsockopen("www.google.com", 80); 
+    if ($connected) {
+        fclose($connected);
+        writeToLog("✅ Connexion Internet valide\n");
+        return true;
+    }
+    writeToLog("❌ Erreur : Pas de connexion Internet.\n");
+    return false;
+}
+
 writeToLog("\n---------------------------------\n");
 writeToLog("🚩 Script Start\n");
 writeToLog("💲ONLINE_TOKEN: " . $Online_Token . "\n");
@@ -89,6 +102,12 @@ if (empty($Online_Token) || empty($domains) || empty($subdomains) || empty($type
     writeToLog("✅ Variables d'environnement valide\n");
 }
 
+//vérification de la connection internet
+if (checkInternetConnection()) {
+    writeToLog("❌ Fatal : Veuillez vérifier votre connexion Internet pour l'initialisation.\n");
+    die("⛔ Done !");
+}
+
 // Vérification de l'API Online.net
 $userInfo = OnlineApi("user", "");
 
@@ -102,8 +121,8 @@ if ($userInfo === null) {
 while (true) {
     foreach ($domains as $domain) {
         foreach ($subdomains as $sub) {
-            // Récupération de l'Ip du client appelant la page.
-            $ipApiResponse = file_get_contents("https://api64.ipify.org?format=json");
+            // Récupération de l'IP du client appelant la page.
+            $ipApiResponse = @file_get_contents("https://api64.ipify.org?format=json");
 
             if ($ipApiResponse !== false) {
                 $ipData = json_decode($ipApiResponse, true);
@@ -111,23 +130,28 @@ while (true) {
 
                 writeToLog("🌐 Adresse IP actuelle : $address\n");
             } else {
-                writeToLog("❌ Impossible de récupérer l'adresse IP.\n");
+                $error = error_get_last();
+                writeToLog("❌ Impossible de récupérer l'adresse IP. Erreur : " . $error['message'] . "\n");
+
+                if (checkInternetConnection()) {
+                    writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.\n");
+                }
             }
 
             writeToLog("🔍 Vérification de l'IP pour $sub.$domain...\n");
 
             if ($sub === "@") {
-                $ipyet = gethostbyname($domain); // Récupération de l'Ip en service sur l'enregistrement DNS.
+                $ipyet = gethostbyname($domain); // Récupération de l'IP en service sur l'enregistrement DNS.
             } elseif ($sub === "*") {
-                $ipyet = gethostbyname("testdnsall." . $domain); // Récupération de l'Ip en service sur l'enregistrement DNS.
+                $ipyet = gethostbyname("testdnsall." . $domain); // Récupération de l'IP en service sur l'enregistrement DNS.
             } else {
-                $ipyet = gethostbyname("$sub.$domain"); // Récupération de l'Ip en service sur l'enregistrement DNS.
+                $ipyet = gethostbyname("$sub.$domain"); // Récupération de l'IP en service sur l'enregistrement DNS.
             }
 
             writeToLog("📊 IP actuelle : $address\n");
             writeToLog("📌 IP enregistrée : $ipyet\n");
 
-            if ($ipyet !== $address) { // Comparaison de la nouvelle Ip et de celle en service.
+            if ($ipyet !== $address) { // Comparaison de la nouvelle IP et de celle en service.
                 $ch = curl_init();
 
                 $URL =  "domain/" . $domain . "/version/active";
