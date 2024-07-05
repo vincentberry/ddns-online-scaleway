@@ -10,8 +10,8 @@ $logFilePath = getenv('LOG_FILE_PATH') ?: "/usr/src/app/log/log.log";
 function writeToLog($message)
 {
     global $logFilePath;
-    file_put_contents($logFilePath, date('Y-m-d H:i:s') . " - $message\n", FILE_APPEND);
-    print_r($message . "\n");
+    file_put_contents($logFilePath, date('Y-m-d H:i:s') . " - $message", FILE_APPEND);
+    print_r($message);
 }
 
 // Fonction pour vérifier l'API Online.net
