@@ -189,8 +189,12 @@ writeToLog("💲ONLINE_TOKEN: " . $Online_Token);
 writeToLog("💲domains: " . json_encode($domains));
 writeToLog("💲subdomains: " . json_encode($subdomains));
 writeToLog("💲type: " . json_encode($types));
-writeToLog("💲checkPublicIPv4: " . $checkPublicIPv4);
-writeToLog("💲checkPublicIPv6: " . $checkPublicIPv6);
+if (in_array('A', $types)) {
+    writeToLog("💲checkPublicIPv4: " . $checkPublicIPv4);
+}
+if (in_array('AAAA', $types)) {
+    writeToLog("💲checkPublicIPv6: " . $checkPublicIPv6);
+}
 writeToLog("💲logFilePath: " . $logFilePath);
 
 // Vérification des valeurs des variables d'environnement
@@ -215,70 +219,77 @@ if ($userInfo === null) {
 }
 
 while (true) {
-    // Récupération de l'IPv4 du client appelant la page.
-    $IPv4ApiResponse = @file_get_contents("https://api.ipify.org?format=json");
-    if ($IPv4ApiResponse !== false && in_array('A', $types)) {
-        $IPv4Data = json_decode($IPv4ApiResponse, true);
-        $addressIPv4 = $IPv4Data['ip'];
-        writeToLog("🌐 Adresse IPv4 publique actuelle : $addressIPv4");
 
-        if (isPublicIPv4($addressIPv4, $checkPublicIPv4)) {
-            writeToLog("\n");
+    //IPv4 Active
+    if (in_array('A', $types)) {
+        // Récupération de l'IPv4 du client appelant la page.
+        $IPv4ApiResponse = @file_get_contents("https://api.ipify.org?format=json");
+        if ($IPv4ApiResponse !== false) {
+            $IPv4Data = json_decode($IPv4ApiResponse, true);
+            $addressIPv4 = $IPv4Data['ip'];
+            writeToLog("🌐 Adresse IPv4 publique actuelle : $addressIPv4");
 
-            foreach ($domains as $domain) {
-                foreach ($subdomains as $sub) {
+            if (isPublicIPv4($addressIPv4, $checkPublicIPv4)) {
+                writeToLog("\n");
 
-                    writeToLog("🔍 Vérification de l'IPv4 pour $sub.$domain...");
+                foreach ($domains as $domain) {
+                    foreach ($subdomains as $sub) {
 
-                    if ($sub === "@") {
-                        $IPv4_domain = gethostbyname($domain); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
-                    } elseif ($sub === "*") {
-                        $IPv4_domain = gethostbyname("testdnsall." . $domain); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
-                    } else {
-                        $IPv4_domain = gethostbyname("$sub.$domain"); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
+                        writeToLog("🔍 Vérification de l'IPv4 pour $sub.$domain...");
+
+                        if ($sub === "@") {
+                            $IPv4_domain = gethostbyname($domain); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
+                        } elseif ($sub === "*") {
+                            $IPv4_domain = gethostbyname("testdnsall." . $domain); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
+                        } else {
+                            $IPv4_domain = gethostbyname("$sub.$domain"); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
+                        }
+                        compareAndUpdate("v4", $IPv4_domain, $addressIPv4, $domain, $sub, "A");
                     }
-                    compareAndUpdate("v4", $IPv4_domain, $addressIPv4, $domain, $sub, "A");
                 }
             }
-        }
-    } else {
-        $error = error_get_last();
-        writeToLog("❌ Impossible de récupérer l'adresse IPv4. Erreur : " . $error['message']);
+        } else {
+            $error = error_get_last();
+            writeToLog("❌ Impossible de récupérer l'adresse IPv4. Erreur : " . $error['message']);
 
-        if (checkInternetConnection()) {
-            writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
+            if (checkInternetConnection()) {
+                writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
+            }
+            writeToLog("\n");
         }
-        writeToLog("\n");
     }
 
-    // Récupération de l'IPv6 du client appelant la page.
-    $IPv6ApiResponse = @file_get_contents("https://api6.ipify.org?format=json");
-    if ($IPv6ApiResponse !== false && in_array('AAAA', $types)) {
-        $IPv4Data = json_decode($IPv4ApiResponse, true);
-        $addressIPv6 = $IPv6Data['ip'];
-        writeToLog("🌐 Adresse IPv4 publique actuelle : $addressIPv6");
+    //IPv6 Active
+    if (in_array('AAAA', $types)) {
+        // Récupération de l'IPv6 du client appelant la page.
+        $IPv6ApiResponse = @file_get_contents("https://api6.ipify.org?format=json");
+        if ($IPv6ApiResponse !== false) {
+            $IPv4Data = json_decode($IPv4ApiResponse, true);
+            $addressIPv6 = $IPv6Data['ip'];
+            writeToLog("🌐 Adresse IPv4 publique actuelle : $addressIPv6");
 
-        if (isPublicIPv4($addressIPv6, $checkPublicIPv6)) {
-            writeToLog("");
+            if (isPublicIPv4($addressIPv6, $checkPublicIPv6)) {
+                writeToLog("");
 
-            foreach ($domains as $domain) {
-                foreach ($subdomains as $sub) {
+                foreach ($domains as $domain) {
+                    foreach ($subdomains as $sub) {
 
-                    writeToLog("🔍 Vérification de l'IPv6 pour $sub.$domain...");
+                        writeToLog("🔍 Vérification de l'IPv6 pour $sub.$domain...");
 
-                    $IPv6_domain = "";
-                    compareAndUpdate("v6", $IPv6_domain, $addressIPv6, $domain, $sub, "AAAA");
+                        $IPv6_domain = "";
+                        compareAndUpdate("v6", $IPv6_domain, $addressIPv6, $domain, $sub, "AAAA");
+                    }
                 }
             }
-        }
-    } else {
-        $error = error_get_last();
-        writeToLog("❌ Impossible de récupérer l'adresse IPv6. Erreur : " . $error['message']);
+        } else {
+            $error = error_get_last();
+            writeToLog("❌ Impossible de récupérer l'adresse IPv6. Erreur : " . $error['message']);
 
-        if (checkInternetConnection()) {
-            writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
+            if (checkInternetConnection()) {
+                writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
+            }
+            writeToLog("");
         }
-        writeToLog("");
     }
 
     writeToLog("⏳ Attente de 5 minutes...");
