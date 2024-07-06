@@ -4,6 +4,8 @@
 
 Le script vise à automatiser la mise à jour des enregistrements DNS A pour un sous-domaine spécifié chez les fournisseurs de services en ligne tels que Online.net. Cela est particulièrement utile dans les scénarios où l'adresse IP de l'hôte change régulièrement.
 
+⚠️ Veuillez noter que ce script est actuellement limité à la gestion des adresses IPv4 uniquement. Les adresses IPv6 ne sont pas prises en charge pour le moment. Assurez-vous que vos configurations et attentes sont alignées avec cette limitation. ⚠️
+
 ## Fonctionnalités
 
 1. **Compatibilité Multi-Fournisseurs:** Le script est conçu pour fonctionner avec les API de plusieurs fournisseurs de services, en se concentrant sur Online.net.
@@ -54,6 +56,7 @@ services:
       - DOMAINS=exemple.fr,exemple-2.fr
       - SUBDOMAINS=@,*
       - TYPES=A
+      - CHECK_PUBLIC_IPv4=true #optional
     restart: unless-stopped
 ````
 Les  logs sont stocké dans le docker `/usr/src/app/log`
@@ -71,6 +74,7 @@ services:
       - DOMAINS=exemple.fr,exemple-2.fr
       - SUBDOMAINS=@,*
       - TYPES=A
+      - CHECK_PUBLIC_IPv4=true #optional
     dns:
       -8.8.8.8
     restart: unless-stopped
@@ -95,6 +99,7 @@ services:
       - DOMAINS=exemple.fr,exemple-2.fr
       - SUBDOMAINS=@,*
       - TYPES=A
+      - CHECK_PUBLIC_IPv4=true #optional
     dns:
       -8.8.8.8
     command: ["php", "/usr/src/app/ddns_update.php"]
@@ -105,12 +110,13 @@ services:
 php ddns_update.php
 ```
 
-| Variable        | Description                                                                                                    |
-| --------------- | -------------------------------------------------------------------------------------------------------------- |
-| `ONLINE_TOKEN`  | Remplacez "MonTokenOniline.Net" par votre clé API Online.net. Obtenez cette clé depuis [la console Online.net](https://console.online.net/fr/api/access). |
-| `DOMAINS`       | Indiquez la liste de vos domaines séparés par des virgules. Par exemple, `exemple.fr,exemple-2.fr`.             |
-| `SUBDOMAINS`    | Spécifiez les sous-domaines séparés par des virgules que vous souhaitez mettre à jour. Utilisez `@` pour le domaine principal et `*` pour tous les sous-domaines (par exemple, `@,*`). |
-| `TYPES`         | Indiquez le type d'enregistrement DNS à mettre à jour. Par exemple, `A` pour un enregistrement de type Adresse IPv4. |
-| `LOG_PATH`      | (Optionnel) Le chemin du répertoire pour les logs. Si vous souhaitez les stocker dans un volume, spécifiez le chemin ici (par exemple, `/log`). |
+| Variable              | Type     | Description                                                                                                    |
+| --------------------- | :------- | -------------------------------------------------------------------------------------------------------------- |
+| `ONLINE_TOKEN`        | `string` | Remplacez "MonTokenOniline.Net" par votre clé API Online.net. Obtenez cette clé depuis [la console Online.net](https://console.online.net/fr/api/access). |
+| `DOMAINS`             | `string` | Indiquez la liste de vos domaines séparés par des virgules. Par exemple, `exemple.fr,exemple-2.fr`.             |
+| `SUBDOMAINS`          | `string` | Spécifiez les sous-domaines séparés par des virgules que vous souhaitez mettre à jour. Utilisez `@` pour le domaine principal et `*` pour tous les sous-domaines (par exemple, `@,*`). |
+| `TYPES`               | `A` or  `AAAA` or `A,AAAA` | Indiquez le type d'enregistrement DNS à mettre à jour. Par exemple, `A`  (par défaut) pour un enregistrement de type Adresse IPv4. |
+| `CHECK_PUBLIC_IPv4`   | `boolean` | (Optionnel) Si défini à true (par défaut), vérifie que l'adresse IP récupérée est une adresse publique. Sinon, cette vérification est ignorée. |
+| `LOG_PATH`            | `string` | (Optionnel) Le chemin du répertoire pour les logs. Si vous souhaitez les stocker dans un volume, spécifiez le chemin ici (par exemple, `/log`). |
 
 Ce README a été créé avec le soutien d'une intelligence artificielle pour fournir des informations claires et utiles.
