@@ -4,14 +4,15 @@
 $Online_Token = getenv('ONLINE_TOKEN');
 $domains = explode(',', getenv('DOMAINS')) ?: [''];
 $subdomains = explode(',', getenv('SUBDOMAINS')) ?: ['@', '*'];
-$types = 'A';
+$types = explode(',', getenv('TYPES')) ?: ['A', 'AAAA'];
 $checkPublicIPv4 = getenv('CHECK_PUBLIC_IPv4') ?: 'true';
+$checkPublicIPv6 = getenv('CHECK_PUBLIC_IPv6') ?: 'true';
 $logFilePath = getenv('LOG_FILE_PATH') ?: "/usr/src/app/log/log.log";
 
 function writeToLog($message)
 {
     global $logFilePath;
-    file_put_contents($logFilePath, date('Y-m-d H:i:s') . " - $message\n", FILE_APPEND);
+    // file_put_contents($logFilePath, date('Y-m-d H:i:s') . " - $message\n", FILE_APPEND);
     print_r($message . " \n");
 
     // Si le message contient "Fatal", arrêter l'exécution du script
@@ -119,13 +120,77 @@ function isPublicIPv4($IPv4, $checkPublicIPv4)
     return true;
 }
 
+// Fonction pour vérifier si c'est bien une IPv6 Publique
+function isPublicIPv6($IPv6, $checkPublicIPv6)
+{
+    if ($checkPublicIPv6) {
+        // Détection simplifiée de l'adresse IPv6 publique (non exhaustif)
+        // Vérification si l'adresse IPv6 commence par les préfixes typiques des adresses publiques
+        $publicPrefixes = [
+            '2',    // Global Unicast (ULA)
+            '3',    // Global Unicast (ULA)
+            '4',    // Global Unicast (ULA)
+            '5',    // Global Unicast (ULA)
+            '6',    // Global Unicast (ULA)
+            '7',    // Global Unicast (ULA)
+            '8',    // Global Unicast (ULA)
+            '9',    // Global Unicast (ULA)
+            'a',    // Global Unicast
+            'A',    // Global Unicast
+            'b',    // Global Unicast
+            'B',    // Global Unicast
+            'c',    // Global Unicast
+            'C',    // Global Unicast
+            'd',    // Global Unicast
+            'D',    // Global Unicast
+            'e',    // Global Unicast
+            'E',    // Global Unicast
+            'f',    // Global Unicast
+            'F'     // Global Unicast
+        ];
+
+        // Vérification du préfixe
+        $firstChar = substr($IPv6, 0, 1);
+        if (in_array($firstChar, $publicPrefixes)) {
+            writeToLog("✅ L'adresse IP récupérée est une adresse IPv6 publique : $IPv6");
+            return true;
+        }
+
+        writeToLog("❌ L'adresse IP récupérée n'est pas une adresse IPv6 publique : $IPv6");
+        return false;
+    }
+    return true;
+}
+
+// Fonction pour comparer et mettre à jour les adresses IP enregistrées
+function compareAndUpdate($IP, $IP_domain, $addressIP, $domain, $sub, $types)
+{
+    writeToLog("📊 IP$IP publique actuelle : $addressIP");
+    writeToLog("📌 IP$IP publique enregistrée : $IP_domain");
+
+    if ($IP_domain !== $addressIP) { // Comparaison de la nouvelle IPv4 et de celle en service.
+        $URL =  "domain/" . $domain . "/version/active";
+        $POSTFIELDS = "[{\"name\": \"$sub\",\"type\": \"$types\",\"changeType\": \"REPLACE\",\"records\": [{\"name\": \"$sub\",\"type\": \"$types\",\"priority\": 0,\"ttl\": 3600,\"data\": \"$addressIP\"}]}]";
+        $result = OnlineApi($URL, $POSTFIELDS, "PATCH");
+
+        if ($result === null) {
+            writeToLog("⏰ Erreur ENVOI pour $sub.$domain");
+        } else {
+            writeToLog("✅ IP$IP publique à mise à jour avec succès pour $sub.$domain\n");
+        }
+    } else {
+        writeToLog("🔄 IP$IP inchangée pour $sub.$domain !\n");
+    }
+}
+
 writeToLog("\n---------------------------------");
 writeToLog("🚩 Script Start");
 writeToLog("💲ONLINE_TOKEN: " . $Online_Token);
 writeToLog("💲domains: " . json_encode($domains));
 writeToLog("💲subdomains: " . json_encode($subdomains));
-writeToLog("💲type: " . $types);
+writeToLog("💲type: " . json_encode($types));
 writeToLog("💲checkPublicIPv4: " . $checkPublicIPv4);
+writeToLog("💲checkPublicIPv6: " . $checkPublicIPv6);
 writeToLog("💲logFilePath: " . $logFilePath);
 
 // Vérification des valeurs des variables d'environnement
@@ -152,9 +217,7 @@ if ($userInfo === null) {
 while (true) {
     // Récupération de l'IPv4 du client appelant la page.
     $IPv4ApiResponse = @file_get_contents("https://api.ipify.org?format=json");
-    $IPv6ApiResponse = @file_get_contents("https://api6.ipify.org?format=json");
-
-    if ($IPv4ApiResponse !== false) {
+    if ($IPv4ApiResponse !== false && in_array('A', $types)) {
         $IPv4Data = json_decode($IPv4ApiResponse, true);
         $addressIPv4 = $IPv4Data['ip'];
         writeToLog("🌐 Adresse IPv4 publique actuelle : $addressIPv4");
@@ -174,25 +237,7 @@ while (true) {
                     } else {
                         $IPv4_domain = gethostbyname("$sub.$domain"); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
                     }
-
-                    writeToLog("📊 IPv4 publique actuelle : $addressIPv4");
-                    writeToLog("📌 IPv4 publique enregistrée : $IPv4_domain");
-
-                    if ($IPv4_domain !== $addressIPv4) { // Comparaison de la nouvelle IPv4 et de celle en service.
-                        $ch = curl_init();
-
-                        $URL =  "domain/" . $domain . "/version/active";
-                        $POSTFIELDS = "[{\"name\": \"$sub\",\"type\": \"$types\",\"changeType\": \"REPLACE\",\"records\": [{\"name\": \"$sub\",\"type\": \"$types\",\"priority\": 0,\"ttl\": 3600,\"data\": \"$addressIPv4\"}]}]";
-                        $result = OnlineApi($URL, $POSTFIELDS, "PATCH");
-
-                        if ($result === null) {
-                            writeToLog("⏰ Erreur ENVOI pour $sub.$domain");
-                        } else {
-                            writeToLog("✅ IPv4 publique à mise à jour avec succès pour $sub.$domain\n");
-                        }
-                    } else {
-                        writeToLog("🔄 IPv4 inchangée pour $sub.$domain !\n");
-                    }
+                    compareAndUpdate("v4", $IPv4_domain, $addressIPv4, $domain, $sub, "A");
                 }
             }
         }
@@ -203,7 +248,39 @@ while (true) {
         if (checkInternetConnection()) {
             writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
         }
+        writeToLog("\n");
     }
+
+    // Récupération de l'IPv6 du client appelant la page.
+    $IPv6ApiResponse = @file_get_contents("https://api6.ipify.org?format=json");
+    if ($IPv6ApiResponse !== false && in_array('AAAA', $types)) {
+        $IPv4Data = json_decode($IPv4ApiResponse, true);
+        $addressIPv6 = $IPv6Data['ip'];
+        writeToLog("🌐 Adresse IPv4 publique actuelle : $addressIPv6");
+
+        if (isPublicIPv4($addressIPv6, $checkPublicIPv6)) {
+            writeToLog("");
+
+            foreach ($domains as $domain) {
+                foreach ($subdomains as $sub) {
+
+                    writeToLog("🔍 Vérification de l'IPv6 pour $sub.$domain...");
+
+                    $IPv6_domain = "";
+                    compareAndUpdate("v6", $IPv6_domain, $addressIPv6, $domain, $sub, "AAAA");
+                }
+            }
+        }
+    } else {
+        $error = error_get_last();
+        writeToLog("❌ Impossible de récupérer l'adresse IPv6. Erreur : " . $error['message']);
+
+        if (checkInternetConnection()) {
+            writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
+        }
+        writeToLog("");
+    }
+
     writeToLog("⏳ Attente de 5 minutes...");
     writeToLog("---------------------------------");
 
