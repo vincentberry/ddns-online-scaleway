@@ -2,13 +2,13 @@
 
 ## Objectif
 
-Le script vise à automatiser la mise à jour des enregistrements DNS A pour un sous-domaine spécifié chez les fournisseurs de services en ligne tels que Online.net. Cela est particulièrement utile dans les scénarios où l'adresse IP de l'hôte change régulièrement.
+Le script vise à automatiser la mise à jour des enregistrements DNS pour un sous-domaine spécifié chez le fournisseur de services en ligne Online.net. Cela est particulièrement utile dans les scénarios où l'adresse IP de l'hôte change régulièrement.
 
 ⚠️ Les adresses IPv6 ne sont pas encore entièrement prises en charge. Assurez-vous que vos configurations et attentes sont alignées avec cette limitation. ⚠️
 
 ## Fonctionnalités
 
-1. **Compatibilité Multi-Fournisseurs:** Le script est conçu pour fonctionner avec les API de plusieurs fournisseurs de services, en se concentrant sur Online.net.
+1. **Compatibilité Fournisseur:** Le script est conçu pour fonctionner avec les API de Online.net
 
 2. **Utilisation de cURL:** Le script utilise cURL pour effectuer des requêtes HTTP pour connaitre la ip du dns.
 
@@ -57,6 +57,7 @@ services:
       - SUBDOMAINS=@,*
       - TYPES=A
       - CHECK_PUBLIC_IPv4=true #optional
+      - LOG_LEVEL=INFO #optional
     restart: unless-stopped
 ````
 Les  logs sont stocké dans le docker `/usr/src/app/log`
@@ -76,6 +77,7 @@ services:
       - TYPES=A
       - CHECK_PUBLIC_IPv4=true #optional
       - CHECK_PUBLIC_IP6=true #optional
+      - LOG_LEVEL=INFO #optional
     dns:
       -8.8.8.8
       -2001:4860:4860::8888
@@ -103,6 +105,7 @@ services:
       - TYPES=A
       - CHECK_PUBLIC_IPv4=true #optional
       - CHECK_PUBLIC_IP6=true #optional
+      - LOG_LEVEL=INFO #optional
     dns:
       -8.8.8.8
       -2001:4860:4860::8888
@@ -123,5 +126,19 @@ php ddns_update.php
 | `CHECK_PUBLIC_IPv4`   | `boolean` | **Optionnel** Si défini à `true`, vérifie que l'adresse IP récupérée est une adresse publique. Sinon, cette vérification est ignorée. *Par default: `true`* |
 | `CHECK_PUBLIC_IPv6`   | `boolean` | **Optionnel** Si défini à `true`, vérifie que l'adresse IP récupérée est une adresse publique. Sinon, cette vérification est ignorée. *Par default: `true`* |
 | `LOG_PATH`            | `string` | **Optionnel** Le chemin du répertoire pour les logs. Si vous souhaitez les stocker dans un volume, spécifiez le chemin ici (par exemple, `/log`). |
+| `LOG_LEVEL`          | `string` | **Optionnel** Définit le niveau de log pour l'application. Les valeurs possibles sont : `DEBUG`, `INFO`, `ERROR`, `FATAL`. La valeur par défaut est `DEBUG`. |
+| `LOOP_INTERVAL`      | `int`    | **Optionnel** La durée (en secondes) entre chaque itération de la boucle principale. Cela définit combien de temps le script attend avant de répéter ses vérifications. La valeur par défaut est `300` secondes (5 minutes). |
+
+### Niveaux de log
+
+Les niveaux de log disponibles dans l'application sont les suivants :
+
+| Niveau   | Description                                                |
+|----------|------------------------------------------------------------|
+| `DEBUG`  | Informations détaillées pour le débogage.                |
+| `INFO`   | Informations générales sur l'exécution du programme.      |
+| `ERROR`  | Messages d'erreur signalant des problèmes à résoudre.     |
+| `FATAL`  | Erreurs critiques entraînant l'arrêt de l'application.     |
+
 
 Ce README a été créé avec le soutien d'une intelligence artificielle pour fournir des informations claires et utiles.

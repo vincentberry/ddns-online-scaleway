@@ -1,22 +1,44 @@
 <?php
 
-// Récupération des clés d'API et d'autres paramètres depuis les variables d'environnement
-$Online_Token = getenv('ONLINE_TOKEN');
-$domains = explode(',', getenv('DOMAINS')) ?: [''];
-$subdomains = explode(',', getenv('SUBDOMAINS')) ?: ['@', '*'];
-$types = explode(',', getenv('TYPES')) ?: ['A', 'AAAA'];
-$checkPublicIPv4 = getenv('CHECK_PUBLIC_IPv4') ?: 'true';
-$checkPublicIPv6 = getenv('CHECK_PUBLIC_IPv6') ?: 'true';
-$logFilePath = getenv('LOG_FILE_PATH') ?: "/usr/src/app/log/log.log";
+// Fonction centralisée pour récupérer les variables d'environnement avec valeur par défaut
+function getEnvVar($key, $default) {
+    return getenv($key) ?: $default;
+}
 
-function writeToLog($message)
+// Récupération des paramètres depuis les variables d'environnement
+$Online_Token = getEnvVar('ONLINE_TOKEN', '');
+$domains = explode(',', getEnvVar('DOMAINS', ''));
+$subdomains = explode(',', getEnvVar('SUBDOMAINS', '@'));
+$types = explode(',', getEnvVar('TYPES', 'A,AAAA'));
+$checkPublicIPv4 = filter_var(getEnvVar('CHECK_PUBLIC_IPv4', 'true'), FILTER_VALIDATE_BOOLEAN);
+$checkPublicIPv6 = filter_var(getEnvVar('CHECK_PUBLIC_IPv6', 'true'), FILTER_VALIDATE_BOOLEAN);
+$logFilePath = getEnvVar('LOG_FILE_PATH', "/usr/src/app/log/log.log");
+$loopInterval = intval(getEnvVar('LOOP_INTERVAL', 300));
+$logLevel = getEnvVar('LOG_LEVEL', "DEBUG");
+
+// Définition des niveaux de log
+$logLevels = [
+    "DEBUG" => 0,
+    "INFO" => 1,
+    "ERROR" => 2,
+    "FATAL" => 3,
+];
+
+function writeToLog($type, $message)
 {
     global $logFilePath;
-    // file_put_contents($logFilePath, date('Y-m-d H:i:s') . " - $message\n", FILE_APPEND);
-    print_r($message . " \n");
+    global $logLevel;
+    global $logLevels;
+
+    // Vérifie si le niveau du message est égal ou supérieur au niveau actuel
+    if ($logLevels[$type] >= $logLevels[$logLevel]) {
+        print_r("[$type] $message\n");
+    }
+
+    file_put_contents($logFilePath, date('Y-m-d H:i:s') . " [$type] - $message\n", FILE_APPEND);
 
     // Si le message contient "Fatal", arrêter l'exécution du script
-    if (stripos($message, 'Fatal') !== false) {
+    if (stripos($type, 'FATAL') !== false) {
         die("⛔ Script arrêté\n");
     }
 }
@@ -47,7 +69,7 @@ function OnlineApi($URL, $POSTFIELDS = "", $method = 'GET')
         ApiErrorOnline($result['code']);
         return null;
     } else {
-        writeToLog("❌ Erreur cURL $httpCode : $error");
+        writeToLog("ERROR", "❌ Erreur cURL $httpCode : $error");
         return null;
     }
 }
@@ -75,9 +97,9 @@ function ApiErrorOnline($httpCode)
     ];
 
     if (isset($errorCodes[$httpCode])) {
-        writeToLog("❌ Erreur API Online.net : " . $errorCodes[$httpCode] . "\n");
+        writeToLog("ERROR", "❌ Erreur API Online.net : " . $errorCodes[$httpCode] . "\n");
     } else {
-        writeToLog("❌ Erreur API Online.net : Code d'erreur inconnu ($httpCode)\n");
+        writeToLog("ERROR", "❌ Erreur API Online.net : Code d'erreur inconnu ($httpCode)\n");
     }
 }
 
@@ -87,10 +109,10 @@ function checkInternetConnection()
     $connected = @fsockopen("www.google.com", 80);
     if ($connected) {
         fclose($connected);
-        writeToLog("✅ Connexion Internet valide");
+        writeToLog("DEBUG", "✅ Connexion Internet valide");
         return true;
     }
-    writeToLog("❌ Erreur : Pas de connexion Internet.");
+    writeToLog("ERROR", "❌ Erreur : Pas de connexion Internet.");
     return false;
 }
 
@@ -111,11 +133,11 @@ function isPublicIPv4($IPv4, $checkPublicIPv4)
         foreach ($privateRanges as $range) {
             list($start, $end) = explode('|', $range);
             if ($IPv4Long >= ip2long($start) && $IPv4Long <= ip2long($end)) {
-                writeToLog("❌ L'adresse IP récupérée n'est pas une adresse IPv4 publique : $IPv4");
+                writeToLog("ERROR", "❌ L'adresse IP récupérée n'est pas une adresse IPv4 publique : $IPv4");
                 return false;
             }
         }
-        writeToLog("✅ L'adresse IP récupérée est une adresse IPv4 publique");
+        writeToLog("DEBUG", "✅ L'adresse IP récupérée est une adresse IPv4 publique");
     }
     return true;
 }
@@ -152,11 +174,11 @@ function isPublicIPv6($IPv6, $checkPublicIPv6)
         // Vérification du préfixe
         $firstChar = substr($IPv6, 0, 1);
         if (in_array($firstChar, $publicPrefixes)) {
-            writeToLog("✅ L'adresse IP récupérée est une adresse IPv6 publique : $IPv6");
+            writeToLog("DEBUG", "✅ L'adresse IP récupérée est une adresse IPv6 publique : $IPv6");
             return true;
         }
 
-        writeToLog("❌ L'adresse IP récupérée n'est pas une adresse IPv6 publique : $IPv6");
+        writeToLog("ERROR", "❌ L'adresse IP récupérée n'est pas une adresse IPv6 publique : $IPv6");
         return false;
     }
     return true;
@@ -165,8 +187,8 @@ function isPublicIPv6($IPv6, $checkPublicIPv6)
 // Fonction pour comparer et mettre à jour les adresses IP enregistrées
 function compareAndUpdate($IP, $IP_domain, $addressIP, $domain, $sub, $types)
 {
-    writeToLog("📊 IP$IP publique actuelle : $addressIP");
-    writeToLog("📌 IP$IP publique enregistrée : $IP_domain");
+    writeToLog("DEBUG", "📊 IP$IP publique actuelle : $addressIP");
+    writeToLog("DEBUG", "📌 IP$IP publique enregistrée : $IP_domain");
 
     if ($IP_domain !== $addressIP) { // Comparaison de la nouvelle IPv4 et de celle en service.
         $URL =  "domain/" . $domain . "/version/active";
@@ -174,48 +196,48 @@ function compareAndUpdate($IP, $IP_domain, $addressIP, $domain, $sub, $types)
         $result = OnlineApi($URL, $POSTFIELDS, "PATCH");
 
         if ($result === null) {
-            writeToLog("⏰ Erreur ENVOI pour $sub.$domain");
+            writeToLog("ERROR","⏰ Échec de l'envoi de la mise à jour DNS pour le sous-domaine $sub du domaine $domain.");
         } else {
-            writeToLog("✅ IP$IP publique à mise à jour avec succès pour $sub.$domain\n");
+            writeToLog("INFO", "✅ Mise à jour réussie : La nouvelle IP publique a été appliquée pour le sous-domaine $sub du domaine $domain.");
         }
     } else {
-        writeToLog("🔄 IP$IP inchangée pour $sub.$domain !\n");
+        writeToLog("DEBUG", "🔄 IP $IP inchangée pour le sous-domaine $sub du domaine $domain.");
     }
 }
 
-writeToLog("\n---------------------------------");
-writeToLog("🚩 Script Start");
-writeToLog("💲ONLINE_TOKEN: " . $Online_Token);
-writeToLog("💲domains: " . json_encode($domains));
-writeToLog("💲subdomains: " . json_encode($subdomains));
-writeToLog("💲type: " . json_encode($types));
+writeToLog("INFO", "\n---------------------------------");
+writeToLog("INFO", "🚩 Script Start");
+writeToLog("INFO", "💲ONLINE_TOKEN: " . $Online_Token);
+writeToLog("INFO", "💲domains: " . json_encode($domains));
+writeToLog("INFO", "💲subdomains: " . json_encode($subdomains));
+writeToLog("INFO", "💲type: " . json_encode($types));
 if (in_array('A', $types)) {
-    writeToLog("💲checkPublicIPv4: " . $checkPublicIPv4);
+    writeToLog("INFO", "💲checkPublicIPv4: " . $checkPublicIPv4);
 }
 if (in_array('AAAA', $types)) {
-    writeToLog("💲checkPublicIPv6: " . $checkPublicIPv6);
+    writeToLog("INFO", "💲checkPublicIPv6: " . $checkPublicIPv6);
 }
-writeToLog("💲logFilePath: " . $logFilePath);
+writeToLog("INFO", "💲logFilePath: " . $logFilePath);
 
 // Vérification des valeurs des variables d'environnement
 if (empty($Online_Token) || empty($domains) || empty($subdomains) || empty($types) || empty($logFilePath)) {
-    writeToLog("⛔ Fatal : Veuillez fournir des valeurs valides pour les variables d'environnement.");
+    writeToLog("FATAL", "⛔ Veuillez fournir des valeurs valides pour les variables d'environnement.");
 } else {
-    writeToLog("✅ Variables d'environnement valide");
+    writeToLog("INFO", "✅ Variables d'environnement valide");
 }
 
 //vérification de la connection internet
 if (!checkInternetConnection()) {
-    writeToLog("⛔ Fatal : Veuillez vérifier votre connexion Internet pour l'initialisation.");
+    writeToLog("FATAL", "⛔ Veuillez vérifier votre connexion Internet pour l'initialisation.");
 }
 
 // Vérification de l'API Online.net
 $userInfo = OnlineApi("user", "");
 
 if ($userInfo === null) {
-    writeToLog("⛔ Fatal : Vérification de l'API Online.net a échoué.");
+    writeToLog("FATAL", "⛔ Vérification de l'API Online.net a échoué.");
 } else {
-    writeToLog("✅ API Online.net valide de " . $userInfo['last_name'] . " " . $userInfo['first_name'] . " \n");
+    writeToLog("INFO", "✅ API Online.net valide de " . $userInfo['last_name'] . " " . $userInfo['first_name'] . " \n");
 }
 
 while (true) {
@@ -227,15 +249,14 @@ while (true) {
         if ($IPv4ApiResponse !== false) {
             $IPv4Data = json_decode($IPv4ApiResponse, true);
             $addressIPv4 = $IPv4Data['ip'];
-            writeToLog("🌐 Adresse IPv4 publique actuelle : $addressIPv4");
+            writeToLog("DEBUG", "🌐 Adresse IPv4 publique actuelle : $addressIPv4");
 
             if (isPublicIPv4($addressIPv4, $checkPublicIPv4)) {
-                writeToLog("\n");
 
                 foreach ($domains as $domain) {
                     foreach ($subdomains as $sub) {
 
-                        writeToLog("🔍 Vérification de l'IPv4 pour $sub.$domain...");
+                        writeToLog("DEBUG", "🔍 Vérification de l'IPv4 pour $sub.$domain...");
 
                         if ($sub === "@") {
                             $IPv4_domain = gethostbyname($domain); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
@@ -250,12 +271,11 @@ while (true) {
             }
         } else {
             $error = error_get_last();
-            writeToLog("❌ Impossible de récupérer l'adresse IPv4. Erreur : " . $error['message']);
+            writeToLog("ERROR", "❌ Impossible de récupérer l'adresse IPv4. Erreur : " . $error['message']);
 
             if (checkInternetConnection()) {
-                writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
+                writeToLog("ERROR", "❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
             }
-            writeToLog("\n");
         }
     }
 
@@ -264,17 +284,16 @@ while (true) {
         // Récupération de l'IPv6 du client appelant la page.
         $IPv6ApiResponse = @file_get_contents("https://api6.ipify.org?format=json");
         if ($IPv6ApiResponse !== false) {
-            $IPv4Data = json_decode($IPv4ApiResponse, true);
+            $IPv6Data = json_decode($IPv6ApiResponse, true);
             $addressIPv6 = $IPv6Data['ip'];
-            writeToLog("🌐 Adresse IPv4 publique actuelle : $addressIPv6");
+            writeToLog("DEBUG", "🌐 Adresse IPv4 publique actuelle : $addressIPv6");
 
             if (isPublicIPv4($addressIPv6, $checkPublicIPv6)) {
-                writeToLog("");
 
                 foreach ($domains as $domain) {
                     foreach ($subdomains as $sub) {
 
-                        writeToLog("🔍 Vérification de l'IPv6 pour $sub.$domain...");
+                        writeToLog("DEBUG", "🔍 Vérification de l'IPv6 pour $sub.$domain...");
 
                         $IPv6_domain = "";
                         compareAndUpdate("v6", $IPv6_domain, $addressIPv6, $domain, $sub, "AAAA");
@@ -283,21 +302,19 @@ while (true) {
             }
         } else {
             $error = error_get_last();
-            writeToLog("❌ Impossible de récupérer l'adresse IPv6. Erreur : " . $error['message']);
+            writeToLog("ERROR", "❌ Impossible de récupérer l'adresse IPv6. Erreur : " . $error['message']);
 
             if (checkInternetConnection()) {
-                writeToLog("❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
+                writeToLog("ERROR", "❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
             }
-            writeToLog("");
         }
     }
 
-    writeToLog("⏳ Attente de 5 minutes...");
-    writeToLog("---------------------------------");
+    writeToLog("DEBUG", "⏳ Attente de 5 minutes...");
 
     // Pause de 5 minutes
-    sleep(300);
+    sleep($loopInterval);
 }
 
-writeToLog("⛔ Done !");
-die("⛔ Done !\n");
+writeToLog("FATAL", "⛔ Script terminé !");
+die("⛔ Fin de l'exécution.\n");
