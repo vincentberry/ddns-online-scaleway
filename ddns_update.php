@@ -205,7 +205,7 @@ function compareAndUpdate($IP, $IP_domain, $addressIP, $domain, $sub, $types)
     }
 }
 
-writeToLog("INFO", "\n---------------------------------");
+writeToLog("INFO", "---------------------------------");
 writeToLog("INFO", "🚩 Script Start");
 writeToLog("INFO", "💲ONLINE_TOKEN: " . $Online_Token);
 writeToLog("INFO", "💲domains: " . json_encode($domains));
@@ -237,7 +237,7 @@ $userInfo = OnlineApi("user", "");
 if ($userInfo === null) {
     writeToLog("FATAL", "⛔ Vérification de l'API Online.net a échoué.");
 } else {
-    writeToLog("INFO", "✅ API Online.net valide de " . $userInfo['last_name'] . " " . $userInfo['first_name'] . " \n");
+    writeToLog("INFO", "✅ API Online.net valide de " . $userInfo['last_name'] . " " . $userInfo['first_name']);
 }
 
 while (true) {
