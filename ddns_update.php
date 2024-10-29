@@ -1,7 +1,8 @@
 <?php
 
 // Fonction centralisée pour récupérer les variables d'environnement avec valeur par défaut
-function getEnvVar($key, $default) {
+function getEnvVar($key, $default)
+{
     return getenv($key) ?: $default;
 }
 
@@ -196,7 +197,7 @@ function compareAndUpdate($IP, $IP_domain, $addressIP, $domain, $sub, $types)
         $result = OnlineApi($URL, $POSTFIELDS, "PATCH");
 
         if ($result === null) {
-            writeToLog("ERROR","⏰ Échec de l'envoi de la mise à jour DNS pour le sous-domaine $sub du domaine $domain.");
+            writeToLog("ERROR", "⏰ Échec de l'envoi de la mise à jour DNS pour le sous-domaine $sub du domaine $domain.");
         } else {
             writeToLog("INFO", "✅ Mise à jour réussie : La nouvelle IP publique a été appliquée pour le sous-domaine $sub du domaine $domain.");
         }
@@ -259,11 +260,18 @@ while (true) {
                         writeToLog("DEBUG", "🔍 Vérification de l'IPv4 pour $sub.$domain...");
 
                         if ($sub === "@") {
-                            $IPv4_domain = gethostbyname($domain); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
+                            $records = dns_get_record($domain, DNS_A);
                         } elseif ($sub === "*") {
-                            $IPv4_domain = gethostbyname("testdnsall." . $domain); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
+                            $records = dns_get_record("testdnsall." . $domain, DNS_A);
                         } else {
-                            $IPv4_domain = gethostbyname("$sub.$domain"); // Récupération de l'IPv4 en service sur l'enregistrement DNS.
+                            $records = dns_get_record("$sub.$domain", DNS_A);
+                        }
+
+                        // Extraction de l'IPv4 si l'enregistrement A existe
+                        if (!empty($records) && isset($records[0]['ip'])) {
+                            $IPv4_domain = $records[0]['ip'];
+                        } else {
+                            $IPv4_domain = "";
                         }
                         compareAndUpdate("v4", $IPv4_domain, $addressIPv4, $domain, $sub, "A");
                     }
@@ -286,16 +294,29 @@ while (true) {
         if ($IPv6ApiResponse !== false) {
             $IPv6Data = json_decode($IPv6ApiResponse, true);
             $addressIPv6 = $IPv6Data['ip'];
-            writeToLog("DEBUG", "🌐 Adresse IPv4 publique actuelle : $addressIPv6");
+            writeToLog("DEBUG", "🌐 Adresse IPv6 publique actuelle : $addressIPv6");
 
-            if (isPublicIPv4($addressIPv6, $checkPublicIPv6)) {
+            if (isPublicIPv6($addressIPv6, $checkPublicIPv6)) {
 
                 foreach ($domains as $domain) {
                     foreach ($subdomains as $sub) {
 
                         writeToLog("DEBUG", "🔍 Vérification de l'IPv6 pour $sub.$domain...");
 
-                        $IPv6_domain = "";
+                        if ($sub === "@") {
+                            $records = dns_get_record($domain, DNS_AAAA);
+                        } elseif ($sub === "*") {
+                            $records = dns_get_record("testdnsall." . $domain, DNS_AAAA);
+                        } else {
+                            $records = dns_get_record("$sub.$domain", DNS_AAAA);
+                        }
+
+                        // Extraction de l'IPv6 si l'enregistrement AAAA existe
+                        if (!empty($records) && isset($records[0]['ipv6'])) {
+                            $IPv6_domain = $records[0]['ipv6'];
+                        } else {
+                            $IPv6_domain = "";
+                        }
                         compareAndUpdate("v6", $IPv6_domain, $addressIPv6, $domain, $sub, "AAAA");
                     }
                 }
