@@ -1,5 +1,8 @@
 # Script de Mise à Jour DDNS (Dynamic DNS) pour Online.net et Scaleway
 
+[![FR](https://img.shields.io/badge/langue-FR-blue)](./README.md)
+[![EN](https://img.shields.io/badge/language-EN-red)](./README-en.md)
+
 ## Objectif
 
 Le script vise à automatiser la mise à jour des enregistrements DNS pour un sous-domaine spécifié chez le fournisseur de services en ligne Online.net. Cela est particulièrement utile dans les scénarios où l'adresse IP de l'hôte change régulièrement.
