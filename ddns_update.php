@@ -16,6 +16,7 @@ $checkPublicIPv6 = filter_var(getEnvVar('CHECK_PUBLIC_IPv6', 'true'), FILTER_VAL
 $logFilePath = getEnvVar('LOG_FILE_PATH', "/usr/src/app/log/log.log");
 $loopInterval = intval(getEnvVar('LOOP_INTERVAL', 300));
 $logLevel = getEnvVar('LOG_LEVEL', "DEBUG");
+$networkDown = false;
 
 // Définition des niveaux de log
 $logLevels = [
@@ -111,9 +112,14 @@ function checkInternetConnection()
     if ($connected) {
         fclose($connected);
         writeToLog("DEBUG", "✅ Connexion Internet valide");
+        if ($networkDown) {
+            writeToLog("INFO", "✅ Connexion Internet rétablie !");
+        }
+        $networkDown = false;
         return true;
     }
     writeToLog("ERROR", "❌ Erreur : Pas de connexion Internet.");
+    $networkDown = true;
     return false;
 }
 
@@ -242,6 +248,12 @@ if ($userInfo === null) {
 }
 
 while (true) {
+    
+    // Vérifier la connexion Internet avant de procéder
+    if (!checkInternetConnection()) {
+        sleep(60); // Réessayer dans 60 secondes
+        continue; // Repasser au début de la boucle
+    }
 
     //IPv4 Active
     if (in_array('A', $types)) {
@@ -331,7 +343,7 @@ while (true) {
         }
     }
 
-    writeToLog("DEBUG", "⏳ Attente de 5 minutes...");
+    writeToLog("DEBUG", "⏳ Attente de $loopInterval secondes...");
 
     // Pause de 5 minutes
     sleep($loopInterval);
