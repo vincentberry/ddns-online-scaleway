@@ -108,6 +108,7 @@ function ApiErrorOnline($httpCode)
 // Fonction pour vérifier la connexion Internet
 function checkInternetConnection()
 {
+    global $networkDown;
     $connected = @fsockopen("www.google.com", 80);
     if ($connected) {
         fclose($connected);
