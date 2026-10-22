@@ -21,6 +21,20 @@ Le script vise à automatiser la mise à jour des enregistrements DNS pour un so
 
 ## Configuration
 
+Le script utilise PHP 8.5.12 CLI avec les extensions `curl`, `json` et `filter`. Le Dockerfile fourni configure cet environnement.
+
+PHP 8.5.12 corrige les vulnérabilités CVE-2026-109618 et CVE-2026-109619 décrites dans [l'avis de sécurité du 21 octobre 2026](https://www.php.net/archive/2026.php#2026-10-21-5). Pour un lancement hors Docker, utilisez PHP 8.5.12 ou une version 8.5 plus récente.
+
+Après récupération de ces modifications, reconstruisez et recréez le service Compose avec `build: .` pour appliquer le correctif :
+
+```bash
+docker compose build --pull ddns
+docker compose up -d --force-recreate ddns
+docker compose exec ddns php -v
+```
+
+Vérifiez que la version affichée est PHP 8.5.12 ou une version 8.5 plus récente. Une ancienne image DockerHub doit également être reconstruite et publiée avant de mettre à jour les installations qui l'utilisent.
+
 Avant d'utiliser le script, les utilisateurs doivent configurer les paramètres spécifiques à leur environnement. Les paramètres typiques incluent :
 
 - Informations d'identification API pour Online.net
@@ -88,7 +102,7 @@ services:
 ````
 
 ## Comment Utiliser le Script avec Docker Compose (sans dockerhub)
-1. Téléchargement du Script: Téléchargez le script ddns_update.php depuis le référentiel GitHub.
+1. Téléchargement du Script: Téléchargez le dépôt, y compris `ddns_update.php` et le `Dockerfile`. Placez le fichier Compose dans le même dossier.
 
 2. Configuration: Ouvrez le script dans un éditeur de texte et configurez les variables au début du script selon vos besoins (informations d'identification, sous-domaine, etc.).
 
@@ -96,11 +110,10 @@ services:
 version: '3'
 services:
   ddns:
-    image: php:7.4-cli
+    build: .
     volumes:
-      - /docker/ddns/script:/usr/src/app
       - /docker/ddns/log:/usr/src/app/log
-    working_dir: /script
+    working_dir: /usr/src/app
     environment:
       - ONLINE_TOKEN=MonTokenOniline.Net
       - DOMAINS=exemple.fr,exemple-2.fr

@@ -60,11 +60,27 @@ function OnlineApi($URL, $POSTFIELDS = "", $method = 'GET')
     $headers[] = 'Content-Type: application/json'; // Correction du type de contenu
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-    $result =  json_decode(curl_exec($ch), true);
+    $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
 
-    curl_close($ch);
+    // Les objets CurlHandle sont libérés automatiquement en PHP 8.5.
+    if ($response === false) {
+        writeToLog("ERROR", "❌ Erreur cURL $httpCode : $error");
+        return null;
+    }
+
+    // Une réponse vide est normale pour une mise à jour sans contenu (HTTP 204).
+    $result = null;
+    if ($response !== '') {
+        try {
+            $result = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            writeToLog("ERROR", "❌ Réponse JSON invalide de l'API Online.net (HTTP $httpCode).");
+            return null;
+        }
+    }
+
     if ($httpCode == 200 || $httpCode == 201 || $httpCode == 202 || $httpCode == 203 || $httpCode == 204) {
         return  $result ?: "ok";
     } elseif ($httpCode == 401 && isset($result['code'])) {

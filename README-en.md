@@ -18,6 +18,20 @@ This script aims to automate DNS record updates for a specified subdomain with t
 
 ## Configuration
 
+The script uses PHP 8.5.12 CLI with the `curl`, `json`, and `filter` extensions. The provided Dockerfile configures this environment.
+
+PHP 8.5.12 fixes CVE-2026-109618 and CVE-2026-109619, described in [the security advisory dated October 21, 2026](https://www.php.net/archive/2026.php#2026-10-21-5). When running outside Docker, use PHP 8.5.12 or a newer 8.5 release.
+
+After obtaining these changes, rebuild and recreate the Compose service configured with `build: .` to apply the fix:
+
+```bash
+docker compose build --pull ddns
+docker compose up -d --force-recreate ddns
+docker compose exec ddns php -v
+```
+
+Check that the reported version is PHP 8.5.12 or a newer 8.5 release. An older DockerHub image must also be rebuilt and published before installations using it can be updated.
+
 Before using the script, users need to configure parameters specific to their environment. Typical parameters include:
 
 - API credentials for Online.net
@@ -85,7 +99,7 @@ services:
 
 ## Using the Script with Docker Compose (without DockerHub)
 
-1. Download the Script: Download the `ddns_update.php` script from the GitHub repository.
+1. Download the Script: Download the repository, including `ddns_update.php` and the `Dockerfile`. Place the Compose file in the same directory.
 
 2. Configuration: Open the script in a text editor and configure the variables at the beginning of the script as needed (credentials, subdomain, etc.).
 
@@ -93,11 +107,10 @@ services:
 version: '3'
 services:
   ddns:
-    image: php:7.4-cli
+    build: .
     volumes:
-      - /docker/ddns/script:/usr/src/app
       - /docker/ddns/log:/usr/src/app/log
-    working_dir: /script
+    working_dir: /usr/src/app
     environment:
       - ONLINE_TOKEN=MyOnlineNetToken
       - DOMAINS=example.com,example-2.com

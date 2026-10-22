@@ -1,5 +1,5 @@
 # Utilisation de l'image PHP officielle avec support pour cURL
-FROM php:8.2-cli
+FROM php:8.5-cli
 
 # Installation de l'extension cURL
 RUN apt-get update && apt-get install -y \
