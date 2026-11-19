@@ -7,30 +7,31 @@
 
 This script aims to automate DNS record updates for a specified subdomain with the online service provider Online.net. This is particularly useful in scenarios where the host's IP address changes regularly.
 
-⚠️ IPv6 addresses are not yet fully supported. Make sure that your configurations and expectations align with this limitation. ⚠️
-
 ## Features
 
 1. **Provider Compatibility:** The script is designed to work with Online.net APIs.
-2. **Use of cURL:** The script utilizes cURL to perform HTTP requests to check the DNS IP.
+2. **API-based comparison:** The script reads the active zone through the Online.net API and updates only records whose address differs from the current public IP.
 3. **Easy Configuration:** Users can easily configure their credentials, the subdomain to be updated, etc., by modifying variables in the script.
 4. **Activity Log:** The script logs significant events in a log file for easy tracking and troubleshooting.
 
+### Local DNS and repeated updates
+
+The comparison uses the `A` and `AAAA` records in the active Online.net zone, read once per domain on each cycle. It does not depend on the container's DNS resolver, so private addresses returned by local DNS or stale DNS caches do not trigger unnecessary writes. The `*` wildcard is read directly from the zone, and equivalent representations of the same IPv6 address are recognized.
+
+If reading the zone fails, that domain is skipped until the next cycle without sending any updates. A successful update message means the API accepted the change; DNS caches may retain the previous value until its TTL expires.
+
+Offline regression tests: `php tests/ddns_update_test.php`.
+
 ## Configuration
 
-The script uses PHP 8.5.12 CLI with the `curl`, `json`, and `filter` extensions. The provided Dockerfile configures this environment.
-
-PHP 8.5.12 fixes CVE-2026-109618 and CVE-2026-109619, described in [the security advisory dated October 21, 2026](https://www.php.net/archive/2026.php#2026-10-21-5). When running outside Docker, use PHP 8.5.12 or a newer 8.5 release.
-
-After obtaining these changes, rebuild and recreate the Compose service configured with `build: .` to apply the fix:
+After obtaining changes, rebuild and recreate the Compose service configured with `build: .` to apply them:
 
 ```bash
 docker compose build --pull ddns
 docker compose up -d --force-recreate ddns
-docker compose exec ddns php -v
 ```
 
-Check that the reported version is PHP 8.5.12 or a newer 8.5 release. An older DockerHub image must also be rebuilt and published before installations using it can be updated.
+An older DockerHub image must also be rebuilt and published before installations using it can be updated.
 
 Before using the script, users need to configure parameters specific to their environment. Typical parameters include:
 

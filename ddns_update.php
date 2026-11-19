@@ -53,7 +53,9 @@ function OnlineApi($URL, $POSTFIELDS = "", $method = 'GET')
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, "https://api.online.net/api/v1/$URL");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $POSTFIELDS);
+    if ($method !== 'GET') {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $POSTFIELDS);
+    }
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
     $headers = array();
     $headers[] = 'Authorization: Bearer ' . $Online_Token;
@@ -82,7 +84,7 @@ function OnlineApi($URL, $POSTFIELDS = "", $method = 'GET')
     }
 
     if ($httpCode == 200 || $httpCode == 201 || $httpCode == 202 || $httpCode == 203 || $httpCode == 204) {
-        return  $result ?: "ok";
+        return $result ?? "ok";
     } elseif ($httpCode == 401 && isset($result['code'])) {
         ApiErrorOnline($result['code']);
         return null;
@@ -208,16 +210,91 @@ function isPublicIPv6($IPv6, $checkPublicIPv6)
     return true;
 }
 
-// Fonction pour comparer et mettre à jour les adresses IP enregistrées
-function compareAndUpdate($IP, $IP_domain, $addressIP, $domain, $sub, $types)
+// Lit exactement le RRset configuré, y compris le wildcard, sans résolution DNS locale.
+function getRecordAddresses($records, $sub, $type)
 {
-    writeToLog("DEBUG", "📊 IP$IP publique actuelle : $addressIP");
-    writeToLog("DEBUG", "📌 IP$IP publique enregistrée : $IP_domain");
+    $addresses = [];
+    foreach ($records as $record) {
+        $name = $record['name'] === '' ? '@' : $record['name'];
+        if (strcasecmp($name, $sub) === 0 && $record['type'] === $type) {
+            $addresses[] = trim($record['data']);
+        }
+    }
+    return $addresses;
+}
 
-    if ($IP_domain !== $addressIP) { // Comparaison de la nouvelle IPv4 et de celle en service.
-        $URL =  "domain/" . $domain . "/version/active";
-        $POSTFIELDS = "[{\"name\": \"$sub\",\"type\": \"$types\",\"changeType\": \"REPLACE\",\"records\": [{\"name\": \"$sub\",\"type\": \"$types\",\"priority\": 0,\"ttl\": 3600,\"data\": \"$addressIP\"}]}]";
-        $result = OnlineApi($URL, $POSTFIELDS, "PATCH");
+// Charge une seule fois la zone active par domaine et par passage.
+function updateDomainRecords($domain, $subdomains, $addresses, ?callable $apiRequest = null)
+{
+    if (empty($addresses)) {
+        return;
+    }
+    $apiRequest ??= 'OnlineApi';
+
+    $domainURL = 'domain/' . rawurlencode($domain);
+    $version = $apiRequest($domainURL . '/version/active');
+    if (!is_array($version) || !isset($version['uuid_ref'])
+        || !is_string($version['uuid_ref']) || $version['uuid_ref'] === '') {
+        writeToLog("ERROR", "❌ Impossible de lire la version active de $domain dans l'API Online.net. Aucune mise à jour pour ce domaine.");
+        return;
+    }
+
+    $records = $apiRequest($domainURL . '/version/' . rawurlencode($version['uuid_ref']) . '/zone');
+    if (!is_array($records) || !array_is_list($records)) {
+        writeToLog("ERROR", "❌ Impossible de lire la zone active de $domain dans l'API Online.net. Aucune mise à jour pour ce domaine.");
+        return;
+    }
+
+    // Une erreur de lecture ne doit jamais être interprétée comme un enregistrement absent.
+    foreach ($records as $record) {
+        if (!is_array($record)
+            || !isset($record['name'], $record['type'], $record['data'])
+            || !is_string($record['name'])
+            || !is_string($record['type'])
+            || !is_string($record['data'])) {
+            writeToLog("ERROR", "❌ Zone active invalide pour $domain dans l'API Online.net. Aucune mise à jour pour ce domaine.");
+            return;
+        }
+    }
+
+    foreach ($addresses as $type => $addressIP) {
+        $IP = $type === 'A' ? 'v4' : 'v6';
+        foreach ($subdomains as $sub) {
+            writeToLog("DEBUG", "🔍 Vérification de l'IP$IP pour $sub.$domain...");
+            $recordAddresses = getRecordAddresses($records, $sub, $type);
+            compareAndUpdate($IP, $recordAddresses, $addressIP, $domain, $sub, $type, $apiRequest);
+        }
+    }
+}
+
+// Fonction pour comparer et mettre à jour les adresses IP enregistrées
+function compareAndUpdate($IP, $recordAddresses, $addressIP, $domain, $sub, $types, ?callable $apiRequest = null)
+{
+    $apiRequest ??= 'OnlineApi';
+    writeToLog("DEBUG", "📊 IP$IP publique actuelle : $addressIP");
+    writeToLog("DEBUG", "📌 IP$IP enregistrée dans l'API Online.net : " . (empty($recordAddresses) ? '(aucune)' : implode(', ', $recordAddresses)));
+
+    // Compare les octets : deux écritures différentes d'une IPv6 peuvent être identiques.
+    $packedAddress = @inet_pton($addressIP);
+    $unchanged = count($recordAddresses) === 1
+        && $packedAddress !== false
+        && @inet_pton($recordAddresses[0]) === $packedAddress;
+
+    if (!$unchanged) {
+        $URL = 'domain/' . rawurlencode($domain) . '/version/active';
+        $POSTFIELDS = json_encode([[
+            'name' => $sub,
+            'type' => $types,
+            'changeType' => 'REPLACE',
+            'records' => [[
+                'name' => $sub,
+                'type' => $types,
+                'priority' => 0,
+                'ttl' => 3600,
+                'data' => $addressIP,
+            ]],
+        ]]);
+        $result = $apiRequest($URL, $POSTFIELDS, "PATCH");
 
         if ($result === null) {
             writeToLog("ERROR", "⏰ Échec de l'envoi de la mise à jour DNS pour le sous-domaine $sub du domaine $domain.");
@@ -229,9 +306,13 @@ function compareAndUpdate($IP, $IP_domain, $addressIP, $domain, $sub, $types)
     }
 }
 
+// Permet de charger les fonctions sans démarrer la boucle (tests et réutilisation).
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== __FILE__) {
+    return;
+}
+
 writeToLog("INFO", "---------------------------------");
 writeToLog("INFO", "🚩 Script Start");
-writeToLog("INFO", "💲ONLINE_TOKEN: " . $Online_Token);
 writeToLog("INFO", "💲domains: " . json_encode($domains));
 writeToLog("INFO", "💲subdomains: " . json_encode($subdomains));
 writeToLog("INFO", "💲type: " . json_encode($types));
@@ -272,6 +353,8 @@ while (true) {
         continue; // Repasser au début de la boucle
     }
 
+    $addresses = [];
+
     //IPv4 Active
     if (in_array('A', $types)) {
         // Récupération de l'IPv4 du client appelant la page.
@@ -282,29 +365,7 @@ while (true) {
             writeToLog("DEBUG", "🌐 Adresse IPv4 publique actuelle : $addressIPv4");
 
             if (isPublicIPv4($addressIPv4, $checkPublicIPv4)) {
-
-                foreach ($domains as $domain) {
-                    foreach ($subdomains as $sub) {
-
-                        writeToLog("DEBUG", "🔍 Vérification de l'IPv4 pour $sub.$domain...");
-
-                        if ($sub === "@") {
-                            $records = dns_get_record($domain, DNS_A);
-                        } elseif ($sub === "*") {
-                            $records = dns_get_record("testdnsall." . $domain, DNS_A);
-                        } else {
-                            $records = dns_get_record("$sub.$domain", DNS_A);
-                        }
-
-                        // Extraction de l'IPv4 si l'enregistrement A existe
-                        if (!empty($records) && isset($records[0]['ip'])) {
-                            $IPv4_domain = $records[0]['ip'];
-                        } else {
-                            $IPv4_domain = "";
-                        }
-                        compareAndUpdate("v4", $IPv4_domain, $addressIPv4, $domain, $sub, "A");
-                    }
-                }
+                $addresses['A'] = $addressIPv4;
             }
         } else {
             $error = error_get_last();
@@ -326,29 +387,7 @@ while (true) {
             writeToLog("DEBUG", "🌐 Adresse IPv6 publique actuelle : $addressIPv6");
 
             if (isPublicIPv6($addressIPv6, $checkPublicIPv6)) {
-
-                foreach ($domains as $domain) {
-                    foreach ($subdomains as $sub) {
-
-                        writeToLog("DEBUG", "🔍 Vérification de l'IPv6 pour $sub.$domain...");
-
-                        if ($sub === "@") {
-                            $records = dns_get_record($domain, DNS_AAAA);
-                        } elseif ($sub === "*") {
-                            $records = dns_get_record("testdnsall." . $domain, DNS_AAAA);
-                        } else {
-                            $records = dns_get_record("$sub.$domain", DNS_AAAA);
-                        }
-
-                        // Extraction de l'IPv6 si l'enregistrement AAAA existe
-                        if (!empty($records) && isset($records[0]['ipv6'])) {
-                            $IPv6_domain = $records[0]['ipv6'];
-                        } else {
-                            $IPv6_domain = "";
-                        }
-                        compareAndUpdate("v6", $IPv6_domain, $addressIPv6, $domain, $sub, "AAAA");
-                    }
-                }
+                $addresses['AAAA'] = $addressIPv6;
             }
         } else {
             $error = error_get_last();
@@ -358,6 +397,10 @@ while (true) {
                 writeToLog("ERROR", "❌ Erreur : La connexion Internet fonctionne, mais une erreur est survenue avec l'API ipify.");
             }
         }
+    }
+
+    foreach ($domains as $domain) {
+        updateDomainRecords($domain, $subdomains, $addresses);
     }
 
     writeToLog("DEBUG", "⏳ Attente de $loopInterval secondes...");

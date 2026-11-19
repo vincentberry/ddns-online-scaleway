@@ -7,33 +7,34 @@
 
 Le script vise à automatiser la mise à jour des enregistrements DNS pour un sous-domaine spécifié chez le fournisseur de services en ligne Online.net. Cela est particulièrement utile dans les scénarios où l'adresse IP de l'hôte change régulièrement.
 
-⚠️ Les adresses IPv6 ne sont pas encore entièrement prises en charge. Assurez-vous que vos configurations et attentes sont alignées avec cette limitation. ⚠️
-
 ## Fonctionnalités
 
 1. **Compatibilité Fournisseur:** Le script est conçu pour fonctionner avec les API de Online.net
 
-2. **Utilisation de cURL:** Le script utilise cURL pour effectuer des requêtes HTTP pour connaitre la ip du dns.
+2. **Comparaison via l'API:** Le script lit la zone active avec l'API Online.net et ne met à jour que les enregistrements dont l'adresse diffère de l'IP publique actuelle.
 
 3. **Configuration Facile:** Les utilisateurs peuvent configurer facilement leurs informations d'identification, le sous-domaine à mettre à jour, etc., en modifiant les variables dans le script.
 
 4. **Log de l'Activité:** Le script enregistre les événements importants dans un fichier journal pour permettre un suivi et un dépannage faciles.
 
+### DNS local et mises à jour répétées
+
+La comparaison utilise les enregistrements `A` et `AAAA` de la zone active chez Online.net, lus une fois par domaine à chaque passage. Elle ne dépend pas du résolveur DNS du conteneur : un DNS local qui renvoie une adresse privée, ou un cache DNS encore ancien, ne provoque donc pas de réécritures inutiles. Le wildcard `*` est lu directement dans la zone et les écritures équivalentes d'une même IPv6 sont reconnues.
+
+Si la lecture de la zone échoue, le domaine est ignoré jusqu'au passage suivant, sans envoi de mise à jour. Le message « Mise à jour réussie » indique que l'API a accepté la modification ; les caches DNS peuvent encore conserver l'ancienne valeur jusqu'à expiration du TTL.
+
+Tests de régression hors ligne : `php tests/ddns_update_test.php`.
+
 ## Configuration
 
-Le script utilise PHP 8.5.12 CLI avec les extensions `curl`, `json` et `filter`. Le Dockerfile fourni configure cet environnement.
-
-PHP 8.5.12 corrige les vulnérabilités CVE-2026-109618 et CVE-2026-109619 décrites dans [l'avis de sécurité du 21 octobre 2026](https://www.php.net/archive/2026.php#2026-10-21-5). Pour un lancement hors Docker, utilisez PHP 8.5.12 ou une version 8.5 plus récente.
-
-Après récupération de ces modifications, reconstruisez et recréez le service Compose avec `build: .` pour appliquer le correctif :
+Après récupération de modifications, reconstruisez et recréez le service Compose avec `build: .` pour les appliquer :
 
 ```bash
 docker compose build --pull ddns
 docker compose up -d --force-recreate ddns
-docker compose exec ddns php -v
 ```
 
-Vérifiez que la version affichée est PHP 8.5.12 ou une version 8.5 plus récente. Une ancienne image DockerHub doit également être reconstruite et publiée avant de mettre à jour les installations qui l'utilisent.
+Une ancienne image DockerHub doit également être reconstruite et publiée avant de mettre à jour les installations qui l'utilisent.
 
 Avant d'utiliser le script, les utilisateurs doivent configurer les paramètres spécifiques à leur environnement. Les paramètres typiques incluent :
 
